@@ -511,8 +511,10 @@ void ExecuteTradingLogicBarBased()
 - [x] **1M Bar Processing**: Realistic backtesting system implemented
 - [x] **Multi-Timeframe System**: Dynamic timeframe optimization ready
 - [x] **Strategy Isolation**: Individual strategy testing framework
-- [ ] **Phase 1 Testing**: Run 20-test optimization matrix
+- [x] **CRITICAL BUG FIX**: Drawdown circuit breaker now resets properly (2025-09-30)
+- [ ] **Phase 1 Testing**: Run 20-test optimization matrix with FIXED EA
 - [ ] **Genetic Optimization**: Parameter tuning on winning combinations
+- [ ] **Walk-Forward Validation**: Confirm >50% profit retention
 - [ ] **Live Testing**: Deploy optimized system
 - [ ] **Scaling**: Expand to full 5-pair portfolio
 
@@ -550,4 +552,54 @@ void ExecuteTradingLogicBarBased()
 
 **The EdgeFinder framework has achieved its ultimate goal: Creating a systematic, profitable, and scalable trading system that adapts intelligently to changing market conditions.**
 
-**Status**: ✅ **BREAKTHROUGH COMPLETE - DEPLOYMENT READY**
+---
+
+## 🚨 **CRITICAL BUG FIX (2025-09-30)**
+
+### **Problem Discovered:**
+Initial optimization tests (15,682 passes) showed **catastrophic forward test failure**:
+- Best backward profit: $36,401 → Forward: **$1.19** (0.003% retention) ❌
+- Best backward Sharpe: 21.88 → Forward: **0.54** (2.5% retention) ❌
+- All results showed DD: 0% and decimal trade counts (impossible!)
+
+### **Root Cause:**
+The `maxDrawdown` variable **never reset** after circuit breaker activation:
+```mql5
+// BUG: maxDrawdown accumulated forever
+if(EnableDrawdownBreaker && maxDrawdown > MaxDrawdownPercent)
+{
+    emergencyShutdown = true;  // EA stopped trading permanently!
+}
+```
+
+Once EA hit 12% drawdown (typically Feb 2019), it **stopped trading for the remaining 5 years**.
+
+### **Fix Applied (Lines 1737-1744):**
+```mql5
+// CRITICAL FIX: Reset maxDrawdown on new day when account recovers
+if(currentBalance > dailyStartBalance * 0.95) // If recovered to within 5%
+{
+    maxDrawdown = 0.0;
+    accountHighWaterMark = currentBalance;
+    Print("✅ DRAWDOWN RESET - Account recovered");
+}
+```
+
+### **Impact:**
+- ✅ EA now continues trading after drawdown recovery
+- ✅ Natural recovery path on new trading days
+- ✅ Protection still active during drawdown periods
+- ✅ Expected result: Continuous trading throughout entire backtest period
+
+### **Action Required:**
+**All previous optimization results are INVALID** - they used buggy EA that stopped trading.
+
+**Must retest with fixed EA:**
+1. Recompile EA in MT5 (press F7)
+2. Rerun backward optimization (2014-2019)
+3. Validate with forward test (2019-2024) using SAME parameters
+4. Success criteria: >50% profit retention in forward test
+
+---
+
+**Status**: 🔧 **BUG FIXED - REVALIDATION REQUIRED**
