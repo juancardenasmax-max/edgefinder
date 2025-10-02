@@ -1,7 +1,8 @@
 ;+------------------------------------------------------------------+
-;| EdgeFinder Ultimate - Genetic Algorithm Optimization Settings    |
+;| EdgeFinder FOCUSED Optimization - Based on Favsets.set          |
+;| Strategy: Narrow ranges (±20%) around proven favsets values     |
 ;| Use with MT5 Strategy Tester: Optimization = Genetic Algorithm  |
-;| Expected time: 4-12 hours on modern PC (depends on date range)  |
+;| Expected time: 2-4 hours (focused search space)                 |
 ;| Format: Parameter=Value||Start||Step||Stop||Optimization        |
 ;|   Optimization: Y=Yes (optimize), N=No (fixed)                  |
 ;+------------------------------------------------------------------+
@@ -15,104 +16,104 @@ TestMode=4||4||1||4||N
 ; === CORE SYSTEM ===
 EnableUltimateSystem=true||true||false||true||N
 MagicNumber=20250928||20250928||1||20250928||N
-RiskPercentage=2.0||1.5||0.5||3.0||Y
-MaxDailyRisk=10.0||5.0||2.5||15.0||Y
+RiskPercentage=1.5||1.2||0.3||2.0||Y  ; Favsets: 1.5, Range: ±20%
+MaxDailyRisk=10.0||8.0||2.0||12.0||Y  ; Favsets: 10.0, Range: ±20%
 EnableMultiTierSystem=true||true||false||true||N
 
 ; === REGIME CORE (CRITICAL FOR OPTIMIZATION) ===
-RegimePeriod=50||30||10||100||Y
-TrendPersistencePeriod=20||10||5||50||Y
+RegimePeriod=60||48||6||72||Y  ; Favsets: 60, Range: ±20%
+TrendPersistencePeriod=40||32||4||48||Y  ; Favsets: 40, Range: ±20%
 
 ; === TIER 3: STRONG TRENDS (HIGH IMPACT) ===
-StrongTrendPersistence=0.8||0.60||0.05||0.95||Y
-StrongTrendThreshold=0.025||0.015||0.005||0.040||Y
-StrongMomentumThreshold=0.015||0.010||0.005||0.025||Y
+StrongTrendPersistence=0.60||0.48||0.06||0.72||Y  ; Favsets: 0.60, Range: ±20%
+StrongTrendThreshold=0.040||0.032||0.004||0.048||Y  ; Favsets: 0.040, Range: ±20%
+StrongMomentumThreshold=0.020||0.016||0.004||0.024||Y  ; Favsets: 0.020, Range: ±20%
 
 ; === TIER 3: MEAN REVERSION (HIGH IMPACT) ===
-ExtremeRSILower=25||15||5||30||Y
-ExtremeRSIUpper=75||70||5||85||Y
-MeanRevTrendMin=0.020||0.010||0.005||0.030||Y
-MeanRevVolMin=1.30||1.10||0.10||1.80||Y
+ExtremeRSILower=20||16||2||24||Y  ; Favsets: 20, Range: ±20%
+ExtremeRSIUpper=75||60||5||90||Y  ; Favsets: 75, Range: ±20%
+MeanRevTrendMin=0.020||0.016||0.004||0.024||Y  ; Favsets: 0.020, Range: ±20%
+MeanRevVolMin=1.70||1.36||0.17||2.04||Y  ; Favsets: 1.70, Range: ±20%
 
 ; === TIER 2: WEAK TRENDS (MODERATE IMPACT) ===
-WeakTrendPersistMin=0.50||0.30||0.10||0.70||Y
-WeakTrendPersistMax=0.80||0.70||0.05||0.90||Y
-WeakTrendStrengthMin=0.010||0.005||0.005||0.020||Y
-WeakTrendStrengthMax=0.025||0.020||0.005||0.035||Y
-WeakMomentumThreshold=0.005||0.003||0.002||0.012||Y
-WeakTrendVolMax=1.50||1.20||0.20||2.00||Y
+WeakTrendPersistMin=0.50||0.40||0.05||0.60||Y  ; Favsets: 0.50, Range: ±20%
+WeakTrendPersistMax=0.70||0.56||0.07||0.84||Y  ; Favsets: 0.70, Range: ±20%
+WeakTrendStrengthMin=0.015||0.012||0.003||0.018||Y  ; Favsets: 0.015, Range: ±20%
+WeakTrendStrengthMax=0.035||0.028||0.004||0.042||Y  ; Favsets: 0.035, Range: ±20%
+WeakMomentumThreshold=0.007||0.005||0.002||0.009||Y  ; Favsets: 0.007, Range: ±20%
+WeakTrendVolMax=1.20||0.96||0.12||1.44||Y  ; Favsets: 1.20, Range: ±20%
 
 ; === TIER 2: BREAKOUTS (MODERATE IMPACT) ===
-BreakoutBBMultiplier=1.0010||1.0005||0.0005||1.0050||Y
-BreakoutVolMin=1.20||1.00||0.10||1.60||Y
+BreakoutBBMultiplier=1.0005||1.0004||0.0002||1.0006||Y  ; Favsets: 1.0005, Range: ±20%
+BreakoutVolMin=1.30||1.04||0.13||1.56||Y  ; Favsets: 1.30, Range: ±20%
 
 ; === TIER 1: VOLATILE RANGING (MOST IMPORTANT!) ===
-VolatilityThreshold=1.50||1.00||0.25||2.50||Y
-VolRangeTrendMax=0.020||0.010||0.005||0.030||Y
-VolRangeBBPosMin=0.10||0.05||0.05||0.20||Y
-VolRangeBBPosMax=0.90||0.80||0.05||0.95||Y
+VolatilityThreshold=2.25||2.00||0.25||2.50||Y  ; Favsets: 2.25, PRIORITY OPTIMIZATION
+VolRangeTrendMax=0.025||0.020||0.005||0.030||Y  ; Favsets: 0.025, Range: ±20%
+VolRangeBBPosMin=0.05||0.04||0.01||0.06||Y  ; Favsets: 0.05, Range: ±20%
+VolRangeBBPosMax=0.95||0.76||0.10||1.00||Y  ; Favsets: 0.95, Range: ±20%
 
 ; === TIER 1: TIGHT RANGE (IMPORTANT) ===
-TightRangeVolMax=0.80||0.60||0.10||1.00||Y
-TightRangeTrendMax=0.010||0.005||0.005||0.020||Y
-TightRangeBBPosMin=0.20||0.10||0.05||0.30||Y
-TightRangeBBPosMax=0.80||0.70||0.05||0.90||Y
+TightRangeVolMax=0.70||0.56||0.07||0.84||Y  ; Favsets: 0.70, Range: ±20%
+TightRangeTrendMax=0.015||0.012||0.003||0.018||Y  ; Favsets: 0.015, Range: ±20%
+TightRangeBBPosMin=0.15||0.12||0.03||0.18||Y  ; Favsets: 0.15, Range: ±20%
+TightRangeBBPosMax=0.70||0.56||0.07||0.84||Y  ; Favsets: 0.70, Range: ±20%
 
 ; === TIER 1: BASIC RANGE (IMPORTANT) ===
-BasicRangeTrendMax=0.015||0.008||0.005||0.025||Y
-BasicRangeMomentumMax=0.010||0.005||0.005||0.020||Y
-BasicRangeVolMin=0.70||0.50||0.10||1.00||Y
-BasicRangeVolMax=1.30||1.10||0.10||1.60||Y
+BasicRangeTrendMax=0.008||0.006||0.002||0.010||Y  ; Favsets: 0.008, Range: ±20%
+BasicRangeMomentumMax=0.005||0.004||0.001||0.006||Y  ; Favsets: 0.005, Range: ±20%
+BasicRangeVolMin=0.70||0.56||0.07||0.84||Y  ; Favsets: 0.70, Range: ±20%
+BasicRangeVolMax=1.60||1.28||0.16||1.92||Y  ; Favsets: 1.60, Range: ±20%
 
 ; === STRATEGY THRESHOLDS ===
-TrendStrengthThreshold=0.015||0.005||0.005||0.030||Y
-RSIOversold=30||20||5||35||Y
-RSIOverbought=70||65||5||80||Y
-VolFadeThreshold=0.015||0.010||0.005||0.025||Y
-VolatilityPeriod=20||10||5||30||Y
-WeakTrendPeriod=30||20||5||50||Y
+TrendStrengthThreshold=0.010||0.008||0.002||0.012||Y  ; Favsets: 0.010, Range: ±20%
+RSIOversold=20||16||2||24||Y  ; Favsets: 20, Range: ±20%
+RSIOverbought=80||64||8||96||Y  ; Favsets: 80, Range: ±20%
+VolFadeThreshold=0.020||0.016||0.004||0.024||Y  ; Favsets: 0.020, Range: ±20%
+VolatilityPeriod=10||8||2||12||Y  ; Favsets: 10, Range: ±20%
+WeakTrendPeriod=50||40||5||60||Y  ; Favsets: 50, Range: ±20%
 
 ; === POSITION SIZING (CRITICAL FOR $$$) ===
-Tier1PositionMultiplier=2.5||1.5||0.5||3.5||Y
-MinConfidenceTier1=0.50||0.40||0.05||0.70||Y
-Tier2PositionMultiplier=1.8||1.2||0.3||2.5||Y
-MinConfidenceTier2=0.70||0.60||0.05||0.85||Y
-Tier3PositionMultiplier=1.2||0.8||0.3||2.0||Y
-MinConfidenceTier3=0.85||0.75||0.05||0.95||Y
-MinIntensityTier3=0.75||0.60||0.05||0.90||Y
+Tier1PositionMultiplier=2.5||2.0||0.5||3.0||Y  ; Favsets: 2.5, PRIORITY OPTIMIZATION
+MinConfidenceTier1=0.70||0.56||0.07||0.84||Y  ; Favsets: 0.70, Range: ±20%
+Tier2PositionMultiplier=1.8||1.44||0.18||2.16||Y  ; Favsets: 1.8, Range: ±20%
+MinConfidenceTier2=0.70||0.56||0.07||0.84||Y  ; Favsets: 0.70, Range: ±20%
+Tier3PositionMultiplier=1.4||1.12||0.14||1.68||Y  ; Favsets: 1.4, Range: ±20%
+MinConfidenceTier3=0.90||0.72||0.09||1.00||Y  ; Favsets: 0.90, Range: ±20%
+MinIntensityTier3=0.80||0.64||0.08||0.96||Y  ; Favsets: 0.80, Range: ±20%
 
 ; === PROFIT TARGETS (CRITICAL FOR WEEKLY PROFITS) ===
-TakeProfitATR=1.5||1.0||0.25||3.0||Y
-DynamicStopLossATR=2.0||1.5||0.25||3.0||Y
+TakeProfitATR=1.50||1.25||0.25||2.00||Y  ; Favsets: 1.50, PRIORITY OPTIMIZATION
+DynamicStopLossATR=1.50||1.20||0.25||1.80||Y  ; Favsets: 1.50, Range: ±20%
 
 ; === RISK MANAGEMENT ===
-MaxDrawdownPercent=8.0||5.0||1.0||12.0||Y
+MaxDrawdownPercent=12.0||10.0||2.0||14.0||Y  ; Favsets: 12.0, Range: ±20%
 EnableDrawdownBreaker=true||true||false||true||N
 EnableRegimeTransition=true||true||false||true||N
-MaxSimultaneousPos=3||1||1||5||Y
+MaxSimultaneousPos=5||4||1||6||Y  ; Favsets: 5, Range: ±20%
 
 ; === INDICATOR PERIODS (MODERATE IMPACT) ===
-MAPeriod=20||10||5||50||Y
-MA50Period=50||30||10||100||Y
-RSIPeriod=14||7||2||21||Y
-MACDFast=12||8||2||16||Y
-MACDSlow=26||20||3||35||Y
-MACDSignal=9||5||2||14||Y
-ATRPeriod=14||10||2||21||Y
-BBPeriod=20||15||5||30||Y
-BBDeviation=2.0||1.5||0.25||3.0||Y
+MAPeriod=30||24||3||36||Y  ; Favsets: 30, Range: ±20%
+MA50Period=30||24||3||36||Y  ; Favsets: 30, Range: ±20%
+RSIPeriod=7||5||1||9||Y  ; Favsets: 7, Range: ±20%
+MACDFast=12||10||2||14||Y  ; Favsets: 12, Range: ±20%
+MACDSlow=35||28||4||42||Y  ; Favsets: 35, Range: ±20%
+MACDSignal=9||7||1||11||Y  ; Favsets: 9, Range: ±20%
+ATRPeriod=16||13||2||19||Y  ; Favsets: 16, Range: ±20%
+BBPeriod=30||24||3||36||Y  ; Favsets: 30, Range: ±20%
+BBDeviation=2.25||1.80||0.25||2.70||Y  ; Favsets: 2.25, Range: ±20%
 
 ; === EXECUTION FILTERS ===
 EnableSpreadFilter=true||true||false||true||N
-MaxSpreadPoints=3.0||1.0||0.5||5.0||Y
-SlippagePoints=2.0||0.5||0.5||3.0||Y
+MaxSpreadPoints=4.0||3.2||0.4||4.8||Y  ; Favsets: 4.0, Range: ±20%
+SlippagePoints=2.0||1.6||0.4||2.4||Y  ; Favsets: 2.0, Range: ±20%
 
 ; === SESSION OPTIMIZATION (MODERATE IMPACT) ===
 EnableSessionFilter=true||true||false||true||N
-TokyoMultiplier=0.80||0.60||0.10||1.00||Y
-LondonMultiplier=1.30||1.00||0.10||1.60||Y
-NYMultiplier=1.10||0.90||0.10||1.30||Y
-OverlapMultiplier=1.50||1.20||0.10||2.00||Y
+TokyoMultiplier=0.60||0.48||0.06||0.72||Y  ; Favsets: 0.60, Range: ±20%
+LondonMultiplier=1.30||1.04||0.13||1.56||Y  ; Favsets: 1.30, Range: ±20%
+NYMultiplier=1.30||1.04||0.13||1.56||Y  ; Favsets: 1.30, Range: ±20%
+OverlapMultiplier=1.50||1.20||0.15||1.80||Y  ; Favsets: 1.50, Range: ±20%
 
 ; === TIER CONTROLS ===
 EnableTier1=true||true||false||true||N
@@ -120,27 +121,138 @@ EnableTier2=true||true||false||true||N
 EnableTier3=true||true||false||true||N
 
 ;+------------------------------------------------------------------+
-;| OPTIMIZATION STRATEGY NOTES                                      |
+;| ADVANCED EXIT STRATEGIES (NEW - FOR 65-70% WIN RATE)            |
+;+------------------------------------------------------------------+
+
+; === TRAILING STOPS (HIGH PRIORITY - PHASE 1) ===
+EnableTrailingStop=true||true||false||true||N
+BreakevenATR=0.5||0.3||0.1||1.0||Y  ; Move to breakeven after X ATR (OPTIMIZE)
+TrailStartATR=1.0||0.8||0.1||1.5||Y  ; Start trailing after X ATR (OPTIMIZE)
+TrailDistanceATR=1.0||0.5||0.25||1.5||Y  ; Trail distance in ATR (OPTIMIZE)
+TightTrailStartATR=2.0||1.5||0.25||3.0||Y  ; Tighten trail after X ATR
+TightTrailDistanceATR=0.5||0.3||0.1||0.8||Y  ; Tight trail distance
+
+; === PARTIAL TAKE PROFIT (HIGH PRIORITY - PHASE 1) ===
+EnablePartialTP=true||true||false||true||N
+PartialTP1_ATR=1.0||0.8||0.1||1.5||Y  ; First TP at X ATR (OPTIMIZE)
+PartialTP1_Percent=50.0||30.0||10.0||70.0||Y  ; Close X% at first TP (OPTIMIZE)
+PartialTP2_ATR=1.5||1.2||0.15||2.0||Y  ; Second TP at X ATR
+PartialTP2_Percent=25.0||20.0||5.0||40.0||Y  ; Close X% at second TP
+
+; === TIME-BASED EXITS (MODERATE PRIORITY - PHASE 2) ===
+EnableTimeBasedExit=true||true||false||true||N
+MaxTradeHours=60||48||6||72||Y  ; Max trade duration - UPDATED to 60h based on test results
+BreakevenExitHours=4||2||1||6||Y  ; Close breakeven trades after X hours
+CutLossHours=6||4||1||8||Y  ; Cut losing trades after X hours
+CutLossATR=-0.5||-0.8||0.1||-0.3||Y  ; Cut if loss > X ATR (range: -0.8 to -0.3, step 0.1)
+
+; === VOLATILITY ADJUSTED (MODERATE PRIORITY - PHASE 2) ===
+EnableVolAdjustedExit=true||true||false||true||N
+HighVolRatio=1.5||1.3||0.1||2.0||Y  ; High vol ratio threshold
+HighVolStopATR=2.0||1.5||0.25||2.5||Y  ; Stop loss in high vol
+LowVolRatio=0.7||0.5||0.1||0.9||Y  ; Low vol ratio threshold
+LowVolStopATR=1.0||0.8||0.1||1.5||Y  ; Stop loss in low vol
+
+; === SESSION-BASED EXITS (LOW PRIORITY - PHASE 3) ===
+EnableSessionExit=true||true||false||true||N
+CloseBeforeWeekend=true||true||false||true||N
+CloseBeforeTokyoEnd=false||false||false||true||Y  ; Test both true/false
+
+;+------------------------------------------------------------------+
+;| HOUR FILTER - AVOID UNPROFITABLE HOURS (NEW - HIGH PRIORITY!)   |
+;+------------------------------------------------------------------+
+; Based on 11+ years backtest analysis (2014-2025)
+; 21:00 GMT = -$2,383 loss (WORST HOUR - 45% WR!)
+; 22:00 GMT = low win rate (38.6%)
+; 23:00 GMT = low win rate (42.6%)
+; 05:00 GMT = negative avg P/L (-$4.35)
+; 11:00 GMT = negative avg P/L (-$1.64)
+
+EnableHourFilter=true||true||false||true||N  ; Master hour filter switch
+AvoidHour21=true||true||false||true||N  ; 21:00 GMT (45.0% WR, -$5.08 avg - WORST!)
+AvoidHour22=true||true||false||true||N  ; 22:00 GMT (38.6% WR - 2nd worst)
+AvoidHour23=true||true||false||true||N  ; 23:00 GMT (42.6% WR - 3rd worst)
+AvoidHour05=true||true||false||true||N  ; 05:00 GMT (losing hour: -$4.35 avg)
+AvoidHour11=true||true||false||true||N  ; 11:00 GMT (losing hour: -$1.64 avg)
+CustomAvoidHours=||||||N  ; Additional custom hours (string, not optimized)
+
+;+------------------------------------------------------------------+
+;| OPTIMIZATION STRATEGY - UPDATED WITH EXIT STRATEGIES            |
 ;+------------------------------------------------------------------+
 ;
-; PHASE 1: Quick Optimization (2-4 hours)
-; - Focus on: Position multipliers, confidence thresholds, TP/SL
-; - Keep indicator periods fixed
-; - Result: 30-50% improvement
+; PHASE 1: CORE PARAMETERS (Original Favsets Focus)
+; ================================================
+; BASELINE: Your favsets.set shows 59% win rate on 2014-2025
+; GOAL: Fine-tune around proven values + optimize exit strategies
 ;
-; PHASE 2: Deep Optimization (8-12 hours)
-; - Optimize ALL parameters marked Y=Yes
-; - Use genetic algorithm with population 100-200
-; - Result: 50-150% improvement
+; PRIORITY PARAMETERS (Core Strategy):
+;   1. TakeProfitATR: 1.25-2.00 (currently 1.50)
+;   2. Tier1PositionMultiplier: 2.0-3.0 (currently 2.5)
+;   3. VolatilityThreshold: 2.0-2.5 (currently 2.25)
 ;
-; PHASE 3: Walk-Forward Validation
-; - Split data into 6-month segments
-; - Optimize on first 3 months, test on next 3 months
-; - Roll forward through entire dataset
-; - Result: Robust parameters that work across periods
+; PHASE 2: EXIT STRATEGY OPTIMIZATION (NEW - 65-70% WIN RATE TARGET)
+; ===================================================================
+; HIGHEST IMPACT PARAMETERS (Optimize First):
+;   1. BreakevenATR: 0.3-1.0 (move SL to breakeven)
+;   2. TrailStartATR: 0.8-1.5 (when to start trailing)
+;   3. TrailDistanceATR: 0.5-1.5 (trail distance)
+;   4. PartialTP1_ATR: 0.8-1.5 (first partial take profit)
+;   5. PartialTP1_Percent: 30-70% (how much to close)
 ;
-; EXPECTED IMPROVEMENTS:
-; Default: 8-12% annual, 1.2-1.5 Sharpe, $300-400/week on $100k
-; Optimized: 15-25% annual, 1.8-2.5 Sharpe, $500-800/week on $100k
+; MODERATE IMPACT PARAMETERS (Optimize Second):
+;   6. MaxTradeHours: 4-12 (max trade duration)
+;   7. BreakevenExitHours: 2-6 (close dead trades)
+;   8. CutLossHours: 4-8 (cut losing trades)
+;   9. HighVolStopATR: 1.5-2.5 (stops in high vol)
+;   10. LowVolStopATR: 0.8-1.5 (stops in low vol)
+;
+; OPTIMIZATION APPROACH:
+; =====================
+; Option A: FULL OPTIMIZATION (8-12 hours)
+;   - Optimize ALL parameters simultaneously
+;   - Best for finding global optimum
+;   - Risk: May overfit to specific periods
+;
+; Option B: PHASED OPTIMIZATION (4-6 hours total)
+;   - Phase 1: Optimize exit strategies only (keep favsets core)
+;   - Phase 2: Fine-tune core parameters with best exits
+;   - Better for understanding each component's impact
+;
+; Option C: BASELINE COMPARISON (2-3 hours)
+;   - Test 1: Favsets only (no exit strategies) = Baseline
+;   - Test 2: Favsets + all exit strategies enabled
+;   - Compare win rate improvement
+;
+; RECOMMENDED APPROACH: Start with Option C
+; ==========================================
+; 1. Run backtest with favsets.set + all exit strategies ON
+; 2. If win rate improves 59% → 63-65%+, proceed to Option B
+; 3. Use Option B to fine-tune exit parameters
+; 4. Final validation with walk-forward test
+;
+; EXECUTION SETTINGS:
+; ==================
+; - Genetic Algorithm with population 100-200
+; - Expected time: 2-12 hours (depending on approach)
+; - Date range: 2014-2019 (backward), validate on 2019-2024 (forward)
+;
+; SUCCESS CRITERIA:
+; =================
+; - Win rate improvement: 59% → 65-70% (target)
+; - Win rate minimum: 59% → 63-65% (acceptable)
+; - Forward retention: >50% (profit and Sharpe)
+; - Forward trades: >500 (continuous trading)
+; - Total profit: >$10,000 across both periods
+; - Profit factor: Maintained or improved (>1.8)
+; - Sharpe ratio: Maintained or improved (>1.2)
+;
+; EXPECTED RESULTS:
+; ================
+; Favsets baseline: 59% win rate
+; + Exit strategies: 65-70% win rate (10-15% improvement)
+; + Optimization: 68-72% win rate (additional 3-5% from tuning)
+;
+; ALTERNATIVE: If optimization shows minimal improvement,
+; your favsets.set + default exit parameters are already optimal!
 ;
 ;+------------------------------------------------------------------+

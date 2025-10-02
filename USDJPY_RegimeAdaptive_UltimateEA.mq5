@@ -156,6 +156,52 @@ input bool              EnableTier2             = true;
 input bool              EnableTier3             = true;
 
 //+------------------------------------------------------------------+
+//| ADVANCED EXIT STRATEGIES (65-70% WIN RATE TARGET)                |
+//+------------------------------------------------------------------+
+input group "=== EXIT STRATEGY: TRAILING STOPS ==="
+input bool              EnableTrailingStop      = true;     // Enable Trailing Stop
+input double            BreakevenATR            = 0.5;      // Move to breakeven after X ATR (0.3-1.0)
+input double            TrailStartATR           = 1.0;      // Start trailing after X ATR (0.8-1.5)
+input double            TrailDistanceATR        = 1.0;      // Trail distance in ATR (0.5-1.5)
+input double            TightTrailStartATR      = 2.0;      // Tighten trail after X ATR (1.5-3.0)
+input double            TightTrailDistanceATR   = 0.5;      // Tight trail distance (0.3-0.8)
+
+input group "=== EXIT STRATEGY: PARTIAL TAKE PROFIT ==="
+input bool              EnablePartialTP         = true;     // Enable Partial Take Profit
+input double            PartialTP1_ATR          = 1.0;      // First TP at X ATR (0.8-1.5)
+input double            PartialTP1_Percent      = 50.0;     // Close X% at first TP (30-70)
+input double            PartialTP2_ATR          = 1.5;      // Second TP at X ATR (1.2-2.0)
+input double            PartialTP2_Percent      = 25.0;     // Close X% at second TP (20-40)
+
+input group "=== EXIT STRATEGY: TIME-BASED EXITS ==="
+input bool              EnableTimeBasedExit     = true;     // Enable Time-Based Exits
+input int               MaxTradeHours           = 60;       // Max trade duration in hours (8-72) - UPDATED to 60h based on test results
+input int               BreakevenExitHours      = 4;        // Close breakeven trades after X hours (2-6)
+input int               CutLossHours            = 6;        // Cut losing trades after X hours (4-8)
+input double            CutLossATR              = -0.5;     // Cut if loss > X ATR (0.3-0.8)
+
+input group "=== EXIT STRATEGY: VOLATILITY ADJUSTED ==="
+input bool              EnableVolAdjustedExit   = true;     // Enable Vol-Adjusted Exits
+input double            HighVolRatio            = 1.5;      // High vol ratio threshold (1.3-2.0)
+input double            HighVolStopATR          = 2.0;      // Stop loss in high vol (1.5-2.5)
+input double            LowVolRatio             = 0.7;      // Low vol ratio threshold (0.5-0.9)
+input double            LowVolStopATR           = 1.0;      // Stop loss in low vol (0.8-1.5)
+
+input group "=== EXIT STRATEGY: SESSION-BASED ==="
+input bool              EnableSessionExit       = true;     // Enable Session-Based Exits
+input bool              CloseBeforeWeekend      = true;     // Close all on Friday NY close
+input bool              CloseBeforeTokyoEnd     = false;    // Close profits before Tokyo close
+
+input group "=== HOUR FILTER: AVOID UNPROFITABLE TRADING HOURS ==="
+input bool              EnableHourFilter        = true;     // Enable hour filtering (avoid bad hours)
+input bool              AvoidHour21             = true;     // 21:00 GMT: 45.0% WR, -$5.08 avg (WORST - $2383 loss!)
+input bool              AvoidHour22             = true;     // 22:00 GMT: 38.6% WR, $0.77 avg (2nd worst)
+input bool              AvoidHour23             = true;     // 23:00 GMT: 42.6% WR, $3.86 avg (3rd worst)
+input bool              AvoidHour05             = true;     // 05:00 GMT: 58.0% WR, -$4.35 avg (losing hour)
+input bool              AvoidHour11             = true;     // 11:00 GMT: 67.9% WR, -$1.64 avg (losing hour)
+input string            CustomAvoidHours        = "";       // Additional hours to avoid (e.g., "8,20" for 08:00,20:00 GMT)
+
+//+------------------------------------------------------------------+
 //| GLOBAL VARIABLES                                                 |
 //+------------------------------------------------------------------+
 
@@ -213,6 +259,21 @@ struct TimeframeBar
     double close;
     long volume;
 };
+
+// Exit Strategy Tracking Structure
+struct PositionExitTracking
+{
+    ulong ticket;
+    bool partialTP1_taken;
+    bool partialTP2_taken;
+    bool movedToBreakeven;
+    bool trailingActive;
+    double highestProfit;
+    datetime openTime;
+};
+
+PositionExitTracking exitTracking[100];  // Track up to 100 positions
+int exitTrackingCount = 0;
 
 // Emergency shutdown tracking
 datetime emergencyShutdownTime = 0;
@@ -1485,6 +1546,72 @@ bool CheckSpreadFilter()
 }
 
 //+------------------------------------------------------------------+
+//| Check if current hour should be avoided (based on test results) |
+//+------------------------------------------------------------------+
+bool IsAvoidedHour()
+{
+    if(!EnableHourFilter)
+        return false; // Hour filter disabled, no hours avoided
+
+    MqlDateTime dt;
+    TimeToStruct(TimeCurrent(), dt);
+    int currentHour = dt.hour; // GMT hour
+
+    // Check statistically proven bad hours (based on 2014-2025 backtest analysis)
+    if(AvoidHour21 && currentHour == 21)
+    {
+        Print("🚫 HOUR FILTER: Avoided trade at 21:00 GMT (45.0% WR, -$5.08 avg - WORST HOUR!)");
+        return true;
+    }
+
+    if(AvoidHour22 && currentHour == 22)
+    {
+        Print("🚫 HOUR FILTER: Avoided trade at 22:00 GMT (38.6% WR, $0.77 avg - 2nd worst)");
+        return true;
+    }
+
+    if(AvoidHour23 && currentHour == 23)
+    {
+        Print("🚫 HOUR FILTER: Avoided trade at 23:00 GMT (42.6% WR, $3.86 avg - 3rd worst)");
+        return true;
+    }
+
+    if(AvoidHour05 && currentHour == 5)
+    {
+        Print("🚫 HOUR FILTER: Avoided trade at 05:00 GMT (58.0% WR, -$4.35 avg - losing hour)");
+        return true;
+    }
+
+    if(AvoidHour11 && currentHour == 11)
+    {
+        Print("🚫 HOUR FILTER: Avoided trade at 11:00 GMT (67.9% WR, -$1.64 avg - losing hour)");
+        return true;
+    }
+
+    // Check custom avoided hours if specified
+    if(StringLen(CustomAvoidHours) > 0)
+    {
+        string hours[];
+        int numHours = StringSplit(CustomAvoidHours, ',', hours);
+
+        for(int i = 0; i < numHours; i++)
+        {
+            StringTrimLeft(hours[i]);
+            StringTrimRight(hours[i]);
+
+            int avoidHour = (int)StringToInteger(hours[i]);
+            if(currentHour == avoidHour)
+            {
+                Print("🚫 HOUR FILTER: Avoided trade at ", StringFormat("%02d", currentHour), ":00 GMT (custom filter)");
+                return true;
+            }
+        }
+    }
+
+    return false; // Hour is OK for trading
+}
+
+//+------------------------------------------------------------------+
 //| Execute trade with proper validation and tracking              |
 //+------------------------------------------------------------------+
 bool ExecuteTrade(bool isBuy, double positionSize, double sl, double tp, string comment)
@@ -1492,6 +1619,10 @@ bool ExecuteTrade(bool isBuy, double positionSize, double sl, double tp, string 
     // Check spread first
     if(!CheckSpreadFilter())
         return false;
+
+    // Check if current hour should be avoided (NEW - based on test results)
+    if(IsAvoidedHour())
+        return false; // Skip trade during unprofitable hours
 
     // Validate stop loss levels
     double minStopLevel = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
@@ -1553,11 +1684,35 @@ bool ExecuteTrade(bool isBuy, double positionSize, double sl, double tp, string 
     {
         lastTradeTime = TimeCurrent();
         tradesThisSession++;
-        Print("✅ Trade executed: ", comment, " | Size: ", positionSize, " | SL: ", sl, " | TP: ", tp);
+
+        // Enhanced logging with full trade context
+        string direction = isBuy ? "BUY" : "SELL";
+        double currentPrice = isBuy ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+        double slPips = MathAbs(currentPrice - sl) / _Point;
+        double tpPips = MathAbs(tp - currentPrice) / _Point;
+        double riskReward = tpPips / slPips;
+
+        Print("═══════════════════════════════════════════════════════════════");
+        Print("✅ TRADE EXECUTED: ", direction, " ", positionSize, " lots");
+        Print("───────────────────────────────────────────────────────────────");
+        Print("📍 Strategy: ", comment);
+        Print("🎯 Regime: ", EnumToString(currentRegime));
+        Print("💯 Confidence: ", DoubleToString(regimeConfidence * 100, 1), "% | Intensity: ", DoubleToString(regimeIntensity * 100, 1), "%");
+        Print("───────────────────────────────────────────────────────────────");
+        Print("📊 Entry Price: ", DoubleToString(currentPrice, 3));
+        Print("🛡️ Stop Loss: ", DoubleToString(sl, 3), " (", DoubleToString(slPips, 1), " pips)");
+        Print("🎯 Take Profit: ", DoubleToString(tp, 3), " (", DoubleToString(tpPips, 1), " pips)");
+        Print("⚖️ Risk:Reward = 1:", DoubleToString(riskReward, 2));
+        Print("───────────────────────────────────────────────────────────────");
+        Print("📈 Account: $", DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2));
+        Print("📊 Daily P&L: $", DoubleToString(dailyProfit, 2), " | Session Trades: ", tradesThisSession);
+        Print("═══════════════════════════════════════════════════════════════");
     }
     else
     {
-        Print("❌ Trade failed: ", comment, " | Error: ", trade.ResultRetcode());
+        Print("❌ TRADE FAILED: ", comment);
+        Print("   Error Code: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
+        Print("   Regime: ", EnumToString(currentRegime), " | Confidence: ", DoubleToString(regimeConfidence * 100, 1), "%");
     }
 
     return success;
@@ -1718,6 +1873,22 @@ void CheckAndPerformDailyReset()
 
     if(isNewDay || forceReset)
     {
+        // CRITICAL FIX: Reset maxDrawdown BEFORE updating dailyStartBalance
+        // This allows checking recovery from PREVIOUS day's starting balance
+        if(dailyStartBalance > 0 && currentBalance > dailyStartBalance * 0.95)
+        {
+            maxDrawdown = 0.0;
+            accountHighWaterMark = currentBalance;
+            Print("✅ DRAWDOWN RESET - Account recovered to within 5% of previous day start");
+        }
+        else if(isNewDay)
+        {
+            // Always reset on new day regardless of recovery
+            maxDrawdown = 0.0;
+            accountHighWaterMark = currentBalance;
+            Print("✅ DRAWDOWN RESET - New trading day");
+        }
+
         // Reset daily tracking
         lastResetDay = currentDay;
         lastResetTime = TimeCurrent();
@@ -1732,15 +1903,6 @@ void CheckAndPerformDailyReset()
             emergencyShutdownTime = 0;
             systemStatus = "ACTIVE";
             Print("🔄 EMERGENCY SHUTDOWN CLEARED - New Trading Day");
-        }
-
-        // CRITICAL FIX: Reset maxDrawdown on new day
-        // Otherwise circuit breaker stays active forever!
-        if(currentBalance > dailyStartBalance * 0.95) // If recovered to within 5% of start
-        {
-            maxDrawdown = 0.0;
-            accountHighWaterMark = currentBalance;
-            Print("✅ DRAWDOWN RESET - Account recovered");
         }
 
         if(isNewDay)
@@ -1896,6 +2058,28 @@ void MonitorPositions()
             }
         }
     }
+
+    // Clean up tracking entries for positions that no longer exist
+    CleanupExitTracking();
+}
+
+//+------------------------------------------------------------------+
+//| Clean up exit tracking for closed positions                      |
+//+------------------------------------------------------------------+
+void CleanupExitTracking()
+{
+    // Loop backwards through tracking array
+    for(int i = exitTrackingCount - 1; i >= 0; i--)
+    {
+        ulong ticket = exitTracking[i].ticket;
+
+        // Check if position still exists
+        if(!PositionSelectByTicket(ticket))
+        {
+            // Position closed - remove tracking entry
+            RemoveExitTracking(ticket);
+        }
+    }
 }
 
 //+------------------------------------------------------------------+
@@ -1921,43 +2105,411 @@ void CheckRegimeTransitionExit(ulong ticket)
 }
 
 //+------------------------------------------------------------------+
-//| Advanced position management                                     |
+//| Advanced position management with 5 exit strategies              |
+//| Target: Improve 59% → 65-70% win rate                           |
 //+------------------------------------------------------------------+
 void ManagePosition(ulong ticket)
 {
     if(!PositionSelectByTicket(ticket))
         return;
 
-    double positionProfit = PositionGetDouble(POSITION_PROFIT);
+    // Get position data
+    double currentPrice = PositionGetDouble(POSITION_PRICE_CURRENT);
+    double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+    double currentSL = PositionGetDouble(POSITION_SL);
+    double currentTP = PositionGetDouble(POSITION_TP);
+    double volume = PositionGetDouble(POSITION_VOLUME);
+    datetime openTime = (datetime)PositionGetInteger(POSITION_TIME);
+    bool isBuy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
+
+    // Get indicator values
     double atr = GetIndicatorValue(handleATR, 0);
+    if(atr <= 0) atr = 0.001; // Prevent division by zero
 
-    // Example: Move stop to breakeven when profit > 1 ATR
-    if(positionProfit > atr * 50) // Simplified calculation
+    // Calculate profit metrics
+    double profitPips = isBuy ?
+        (currentPrice - openPrice) / _Point :
+        (openPrice - currentPrice) / _Point;
+    double profitATR = (currentPrice - openPrice) / atr;
+    if(!isBuy) profitATR = -profitATR;
+
+    // Get or create tracking entry
+    int trackIdx = GetExitTrackingIndex(ticket);
+    if(trackIdx == -1)
     {
-        double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-        double currentSL = PositionGetDouble(POSITION_SL);
+        trackIdx = CreateExitTracking(ticket, openTime);
 
-        double currentTP = PositionGetDouble(POSITION_TP); // Preserve existing TP
-
-        if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+        // Safety check: if array is full, skip exit management for this position
+        if(trackIdx == -1)
         {
-            if(currentSL < openPrice)
-            {
-                double newSL = openPrice + (atr * 0.1);
-                trade.PositionModify(ticket, newSL, currentTP); // Keep existing TP
-                Print("📈 Moved stop to breakeven+ for position ", ticket, " SL: ", newSL, " TP: ", currentTP);
-            }
+            Print("⚠️ WARNING: Exit tracking array full! Skipping advanced exits for position ", ticket);
+            return;
         }
-        else
+    }
+
+    // Update highest profit for trailing
+    if(profitATR > exitTracking[trackIdx].highestProfit)
+        exitTracking[trackIdx].highestProfit = profitATR;
+
+    // Calculate trade duration
+    int hoursOpen = (int)((TimeCurrent() - openTime) / 3600);
+
+    //=== STRATEGY 1: SESSION-BASED EXITS (highest priority) ===
+    if(EnableSessionExit)
+    {
+        if(CheckSessionBasedExit(ticket, isBuy, profitPips, hoursOpen))
+            return; // Position closed
+    }
+
+    //=== STRATEGY 2: TIME-BASED EXITS ===
+    if(EnableTimeBasedExit)
+    {
+        if(CheckTimeBasedExit(ticket, hoursOpen, profitATR, atr))
+            return; // Position closed
+    }
+
+    //=== STRATEGY 3: PARTIAL TAKE PROFIT ===
+    if(EnablePartialTP && volume >= 0.02) // Need minimum volume for partials
+    {
+        ExecutePartialTakeProfit(ticket, trackIdx, profitATR, atr, isBuy, volume, openPrice);
+    }
+
+    //=== STRATEGY 4: TRAILING STOP ===
+    if(EnableTrailingStop)
+    {
+        ExecuteTrailingStop(ticket, trackIdx, profitATR, atr, isBuy, openPrice, currentPrice, currentSL, currentTP);
+    }
+
+    //=== STRATEGY 5: VOLATILITY-ADJUSTED EXITS ===
+    if(EnableVolAdjustedExit)
+    {
+        AdjustStopForVolatility(ticket, atr, isBuy, openPrice, currentSL, currentTP);
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Get exit tracking index for ticket                       |
+//+------------------------------------------------------------------+
+int GetExitTrackingIndex(ulong ticket)
+{
+    for(int i = 0; i < exitTrackingCount; i++)
+    {
+        if(exitTracking[i].ticket == ticket)
+            return i;
+    }
+    return -1;
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Create new exit tracking entry                           |
+//+------------------------------------------------------------------+
+int CreateExitTracking(ulong ticket, datetime openTime)
+{
+    if(exitTrackingCount >= 100) return -1; // Array full
+
+    int idx = exitTrackingCount;
+    exitTracking[idx].ticket = ticket;
+    exitTracking[idx].partialTP1_taken = false;
+    exitTracking[idx].partialTP2_taken = false;
+    exitTracking[idx].movedToBreakeven = false;
+    exitTracking[idx].trailingActive = false;
+    exitTracking[idx].highestProfit = 0.0;
+    exitTracking[idx].openTime = openTime;
+
+    exitTrackingCount++;
+    return idx;
+}
+
+//+------------------------------------------------------------------+
+//| Strategy 1: Session-Based Exits                                  |
+//+------------------------------------------------------------------+
+bool CheckSessionBasedExit(ulong ticket, bool isBuy, double profitPips, int hoursOpen)
+{
+    MqlDateTime dt;
+    TimeToStruct(TimeCurrent(), dt);
+    int hourGMT = dt.hour;
+
+    // Close before weekend (Friday after 9 PM GMT)
+    if(CloseBeforeWeekend && dt.day_of_week == 5 && hourGMT >= 21)
+    {
+        if(trade.PositionClose(ticket))
         {
-            if(currentSL > openPrice)
+            Print("═══════════════════════════════════════════════════════════════");
+            Print("📅 WEEKEND EXIT: Closed position #", ticket);
+            Print("   Reason: Friday NY close - Weekend gap protection");
+            Print("   Profit: ", DoubleToString(profitPips, 1), " pips");
+            Print("═══════════════════════════════════════════════════════════════");
+        }
+        RemoveExitTracking(ticket);
+        return true;
+    }
+
+    // Close profits before Tokyo close (market goes quiet)
+    if(CloseBeforeTokyoEnd && hourGMT >= 7 && hourGMT < 8)
+    {
+        if(profitPips > 5)
+        {
+            if(trade.PositionClose(ticket))
             {
-                double newSL = openPrice - (atr * 0.1);
-                trade.PositionModify(ticket, newSL, currentTP); // Keep existing TP
-                Print("📉 Moved stop to breakeven+ for position ", ticket, " SL: ", newSL, " TP: ", currentTP);
+                Print("═══════════════════════════════════════════════════════════════");
+                Print("📅 TOKYO SESSION EXIT: Closed position #", ticket);
+                Print("   Reason: Tokyo close - Market going quiet");
+                Print("   Profit: ", DoubleToString(profitPips, 1), " pips");
+                Print("═══════════════════════════════════════════════════════════════");
+            }
+            RemoveExitTracking(ticket);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+//+------------------------------------------------------------------+
+//| Strategy 2: Time-Based Exits                                     |
+//+------------------------------------------------------------------+
+bool CheckTimeBasedExit(ulong ticket, int hoursOpen, double profitATR, double atr)
+{
+    // Close breakeven trades after X hours
+    if(hoursOpen >= BreakevenExitHours && MathAbs(profitATR) < 0.15)
+    {
+        if(trade.PositionClose(ticket))
+        {
+            Print("═══════════════════════════════════════════════════════════════");
+            Print("⏰ TIME EXIT (Breakeven): Position #", ticket);
+            Print("   Reason: Trade going nowhere after ", hoursOpen, " hours");
+            Print("   Profit: ", DoubleToString(profitATR, 2), " ATR (minimal movement)");
+            Print("═══════════════════════════════════════════════════════════════");
+        }
+        RemoveExitTracking(ticket);
+        return true;
+    }
+
+    // Cut losing trades after X hours
+    if(hoursOpen >= CutLossHours && profitATR < CutLossATR)
+    {
+        if(trade.PositionClose(ticket))
+        {
+            Print("═══════════════════════════════════════════════════════════════");
+            Print("⏰ TIME EXIT (Cut Loss): Position #", ticket);
+            Print("   Reason: Cutting losing trade after ", hoursOpen, " hours");
+            Print("   Loss: ", DoubleToString(profitATR, 2), " ATR");
+            Print("═══════════════════════════════════════════════════════════════");
+        }
+        RemoveExitTracking(ticket);
+        return true;
+    }
+
+    // Close small winners after max hours
+    if(hoursOpen >= MaxTradeHours && profitATR > 0.3 && profitATR < 1.0)
+    {
+        if(trade.PositionClose(ticket))
+        {
+            Print("═══════════════════════════════════════════════════════════════");
+            Print("⏰ TIME EXIT (Take Profit): Position #", ticket);
+            Print("   Reason: Taking available profit after ", hoursOpen, " hours");
+            Print("   Profit: ", DoubleToString(profitATR, 2), " ATR");
+            Print("═══════════════════════════════════════════════════════════════");
+        }
+        RemoveExitTracking(ticket);
+        return true;
+    }
+
+    return false;
+}
+
+//+------------------------------------------------------------------+
+//| Strategy 3: Partial Take Profit                                  |
+//+------------------------------------------------------------------+
+void ExecutePartialTakeProfit(ulong ticket, int trackIdx, double profitATR, double atr, bool isBuy, double volume, double openPrice)
+{
+    // First partial TP
+    if(!exitTracking[trackIdx].partialTP1_taken && profitATR >= PartialTP1_ATR)
+    {
+        double closeVolume = NormalizeDouble(volume * (PartialTP1_Percent / 100.0), 2);
+        if(closeVolume >= 0.01)
+        {
+            if(trade.PositionClosePartial(ticket, closeVolume))
+            {
+                exitTracking[trackIdx].partialTP1_taken = true;
+
+                Print("═══════════════════════════════════════════════════════════════");
+                Print("✅ PARTIAL TP1: Position #", ticket);
+                Print("   Closed: ", DoubleToString(PartialTP1_Percent, 0), "% (", closeVolume, " lots)");
+                Print("   Profit: ", DoubleToString(profitATR, 2), " ATR");
+                Print("   Remaining: ", DoubleToString(volume - closeVolume, 2), " lots → Moving to breakeven");
+                Print("═══════════════════════════════════════════════════════════════");
+
+                // Move remaining to breakeven
+                if(!exitTracking[trackIdx].movedToBreakeven)
+                {
+                    MoveToBreakeven(ticket, openPrice, isBuy);
+                    exitTracking[trackIdx].movedToBreakeven = true;
+                }
             }
         }
     }
+
+    // Second partial TP
+    if(exitTracking[trackIdx].partialTP1_taken &&
+       !exitTracking[trackIdx].partialTP2_taken &&
+       profitATR >= PartialTP2_ATR)
+    {
+        if(!PositionSelectByTicket(ticket)) return;
+        volume = PositionGetDouble(POSITION_VOLUME);
+
+        double closeVolume = NormalizeDouble(volume * (PartialTP2_Percent / 100.0), 2);
+        if(closeVolume >= 0.01)
+        {
+            if(trade.PositionClosePartial(ticket, closeVolume))
+            {
+                exitTracking[trackIdx].partialTP2_taken = true;
+
+                Print("═══════════════════════════════════════════════════════════════");
+                Print("✅ PARTIAL TP2: Position #", ticket);
+                Print("   Closed: ", DoubleToString(PartialTP2_Percent, 0), "% (", closeVolume, " lots)");
+                Print("   Profit: ", DoubleToString(profitATR, 2), " ATR");
+                Print("   Strategy: Letting final 25% run to full TP");
+                Print("═══════════════════════════════════════════════════════════════");
+            }
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Strategy 4: Trailing Stop                                        |
+//+------------------------------------------------------------------+
+void ExecuteTrailingStop(ulong ticket, int trackIdx, double profitATR, double atr, bool isBuy, double openPrice, double currentPrice, double currentSL, double currentTP)
+{
+    // STAGE 1: Move to breakeven
+    if(!exitTracking[trackIdx].movedToBreakeven && profitATR >= BreakevenATR)
+    {
+        MoveToBreakeven(ticket, openPrice, isBuy);
+        exitTracking[trackIdx].movedToBreakeven = true;
+        return;
+    }
+
+    // STAGE 2: Start trailing
+    if(profitATR >= TrailStartATR)
+    {
+        exitTracking[trackIdx].trailingActive = true;
+
+        double trailDistance = atr * TrailDistanceATR;
+
+        // Use tighter trail if profit is very high
+        if(profitATR >= TightTrailStartATR)
+        {
+            trailDistance = atr * TightTrailDistanceATR;
+        }
+
+        double newSL = isBuy ?
+            currentPrice - trailDistance :
+            currentPrice + trailDistance;
+
+        // Only update if new SL is better
+        if(ShouldUpdateSL(currentSL, newSL, isBuy))
+        {
+            if(trade.PositionModify(ticket, newSL, currentTP))
+            {
+                string trailType = (profitATR >= TightTrailStartATR) ? "TIGHT" : "STANDARD";
+                Print("═══════════════════════════════════════════════════════════════");
+                Print("🎯 TRAILING STOP (", trailType, "): Position #", ticket);
+                Print("   New SL: ", DoubleToString(newSL, 3));
+                Print("   Current Profit: ", DoubleToString(profitATR, 2), " ATR");
+                Print("   Trail Distance: ", DoubleToString(trailDistance / GetIndicatorValue(handleATR, 0), 2), " ATR");
+                Print("═══════════════════════════════════════════════════════════════");
+            }
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Strategy 5: Volatility-Adjusted Exits                            |
+//+------------------------------------------------------------------+
+void AdjustStopForVolatility(ulong ticket, double atr, bool isBuy, double openPrice, double currentSL, double currentTP)
+{
+    // Calculate volatility ratio
+    double atrSlow = GetIndicatorValue(handleATR, 0, ATRPeriod * 3);
+    if(atrSlow <= 0) return;
+
+    double volRatio = atr / atrSlow;
+
+    double newSL = currentSL;
+    bool shouldUpdate = false;
+
+    // High volatility: wider stops
+    if(volRatio > HighVolRatio)
+    {
+        newSL = isBuy ?
+            openPrice - (atr * HighVolStopATR) :
+            openPrice + (atr * HighVolStopATR);
+        shouldUpdate = true;
+    }
+    // Low volatility: tighter stops
+    else if(volRatio < LowVolRatio)
+    {
+        newSL = isBuy ?
+            openPrice - (atr * LowVolStopATR) :
+            openPrice + (atr * LowVolStopATR);
+        shouldUpdate = true;
+    }
+
+    if(shouldUpdate && ShouldUpdateSL(currentSL, newSL, isBuy))
+    {
+        trade.PositionModify(ticket, newSL, currentTP);
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Should update stop loss?                                 |
+//+------------------------------------------------------------------+
+bool ShouldUpdateSL(double currentSL, double newSL, bool isBuy)
+{
+    if(currentSL == 0) return true;
+
+    if(isBuy)
+        return newSL > currentSL; // Better for buy
+    else
+        return newSL < currentSL; // Better for sell
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Move stop to breakeven                                   |
+//+------------------------------------------------------------------+
+void MoveToBreakeven(ulong ticket, double openPrice, bool isBuy)
+{
+    if(!PositionSelectByTicket(ticket)) return;
+
+    double currentSL = PositionGetDouble(POSITION_SL);
+    double currentTP = PositionGetDouble(POSITION_TP);
+
+    // Add small buffer (1 pip)
+    double newSL = openPrice + (isBuy ? _Point : -_Point);
+
+    if(ShouldUpdateSL(currentSL, newSL, isBuy))
+    {
+        if(trade.PositionModify(ticket, newSL, currentTP))
+        {
+            Print("🔒 BREAKEVEN: Moved SL to ", newSL, " for position ", ticket);
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Remove exit tracking entry                               |
+//+------------------------------------------------------------------+
+void RemoveExitTracking(ulong ticket)
+{
+    int idx = GetExitTrackingIndex(ticket);
+    if(idx == -1) return;
+
+    // Shift array elements
+    for(int i = idx; i < exitTrackingCount - 1; i++)
+    {
+        exitTracking[i] = exitTracking[i + 1];
+    }
+
+    exitTrackingCount--;
 }
 
 //+------------------------------------------------------------------+
